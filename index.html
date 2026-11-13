@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>趣味高爾夫小遊戲 - 特教互動學習</title>
+    <!-- Tailwind CSS for modern, responsive, and clean UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0fdf4;
+            user-select: none;
+        }
+        /* Custom animations for golf swing and celebration */
+        @keyframes pulse-slow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 2s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-4 md:p-6">
+
+    <!-- Header Section -->
+    <header class="w-full max-w-4xl text-center bg-white shadow-md rounded-2xl p-4 md:p-6 mb-4 border-2 border-emerald-100">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-emerald-700 mb-2">⛳ 歡樂好玩的趣味高爾夫</h1>
+        <p class="text-gray-600 text-base md:text-lg">點擊大大的按鈕，一起來練習揮桿與推桿吧！</p>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="w-full max-w-4xl bg-white shadow-xl rounded-3xl p-6 md:p-8 flex flex-col items-center border-4 border-emerald-200">
+        
+        <!-- Mode Selection Tabs -->
+        <div class="flex gap-4 mb-6 w-full max-w-md">
+            <button id="btn-mode-distance" onclick="switchMode('distance')" class="flex-1 py-3 px-4 rounded-2xl font-bold text-lg transition-all shadow-md bg-emerald-600 text-white transform hover:scale-105">
+                🚀 測距打擊模式
+            </button>
+            <button id="btn-mode-putt" onclick="switchMode('putt')" class="flex-1 py-3 px-4 rounded-2xl font-bold text-lg transition-all shadow-md bg-emerald-100 text-emerald-800 transform hover:scale-105">
+                🎯 推桿進洞模式
+            </button>
+        </div>
+
+        <!-- Canvas Game Area -->
+        <div class="relative w-full aspect-[16/9] bg-gradient-to-b from-sky-200 to-emerald-300 rounded-2xl overflow-hidden shadow-inner border-4 border-white mb-6">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- Overlay Feedback / Instructions -->
+            <div id="instructionOverlay" class="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-md text-emerald-900 font-bold text-base md:text-lg pointer-events-none">
+                準備好了嗎？點擊下方按鈕開始！
+            </div>
+
+            <!-- Score / Result Display Overlay -->
+            <div id="resultDisplay" class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
+                <div id="resultCard" class="bg-white rounded-3xl p-8 shadow-2xl text-center transform scale-75 transition-transform duration-300 border-4 border-yellow-300">
+                    <div id="resultEmoji" class="text-6xl mb-2">🎉</div>
+                    <h2 id="resultTitle" class="text-3xl font-extrabold text-gray-800 mb-2">太棒了！</h2>
+                    <p id="resultText" class="text-xl text-emerald-600 font-bold mb-6">球飛了 120 公尺！</p>
+                    <button onclick="closeResult()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xl px-8 py-3 rounded-2xl shadow-lg transform active:scale-95 transition-all">
+                        繼續玩！
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="w-full flex flex-col items-center gap-4">
+            <!-- Power Meter (for distance mode) -->
+            <div id="powerContainer" class="w-full max-w-md bg-gray-100 rounded-full h-8 p-1 shadow-inner overflow-hidden border border-gray-200 relative">
+                <div id="powerBar" class="bg-gradient-to-r from-emerald-400 via-yellow-400 to-red-500 h-full rounded-full w-0 transition-all duration-75"></div>
+                <div class="absolute inset-0 flex items-center justify-center text-xs md:text-sm font-extrabold text-gray-700 uppercase tracking-wider">
+                    力量蓄力中
+                </div>
+            </div>
+
+            <!-- Big Action Buttons -->
+            <div class="flex flex-wrap justify-center gap-4 w-full">
+                <button id="actionBtn" onclick="handleAction()" class="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-2xl md:text-3xl px-12 py-5 rounded-3xl shadow-xl transform active:scale-95 transition-all flex items-center gap-3 animate-pulse-slow">
+                    <span>🏌️‍♂️</span> <span id="actionBtnText">用力揮桿！</span>
+                </button>
+                <button onclick="resetGame()" class="bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-700 font-bold text-lg md:text-xl px-6 py-5 rounded-3xl shadow-md transition-all">
+                    🔄 重新開始
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-6 text-gray-500 text-sm text-center">
+        特教生友善數位高爾夫遊戲 ｜ 視覺化與互動學習設計
+    </footer>
+
+    <!-- JavaScript Game Logic -->
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Responsive canvas sizing
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Game States
+        let currentMode = 'distance'; // 'distance' or 'putt'
+        let gameState = 'ready'; // 'ready', 'charging', 'moving', 'success'
+        
+        // Distance Mode Variables
+        let ballX = 100;
+        let ballY = canvas.height * 0.75;
+        let ballRadius = 12;
+        let power = 0;
+        let chargingUp = true;
+        let chargeInterval = null;
+        let flightProgress = 0;
+        let targetDistance = 0;
+
+        // Putt Mode Variables
+        let puttPower = 0;
+        let holeX = canvas.width * 0.75;
+        let holeY = canvas.height * 0.75;
+        let puttStartX = 150;
+        let puttStartY = canvas.height * 0.75;
+
+        function switchMode(mode) {
+            currentMode = mode;
+            resetGame();
+
+            const btnDist = document.getElementById('btn-mode-distance');
+            const btnPutt = document.getElementById('btn-mode-putt');
+            const powerContainer = document.getElementById('powerContainer');
+            const actionBtnText = document.getElementById('actionBtnText');
+            const instructionOverlay = document.getElementById('instructionOverlay');
+
+            if (mode === 'distance') {
+                btnDist.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-lg transition-all shadow-md bg-emerald-600 text-white transform hover:scale-105";
+                btnPutt.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-lg transition-all shadow-md bg-emerald-100 text-emerald-800 transform hover:scale-105";
+                powerContainer.style.display = 'block';
+                actionBtnText.innerText = "用力揮桿！";
+                instructionOverlay.innerText = "模式一：點擊「蓄力揮桿」看球能飛多遠！";
+            } else {
+                btnPutt.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-lg transition-all shadow-md bg-emerald-600 text-white transform hover:scale-105";
+                btnDist.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-lg transition-all shadow-md bg-emerald-100 text-emerald-800 transform hover:scale-105";
+                powerContainer.style.display = 'none';
+                actionBtnText.innerText = "輕輕推球！";
+                instructionOverlay.innerText = "模式二：抓準力道把球推入洞中！";
+            }
+        }
+
+        function resetGame() {
+            gameState = 'ready';
+            power = 0;
+            puttPower = 0;
+            flightProgress = 0;
+            document.getElementById('powerBar').style.width = '0%';
+            if (chargeInterval) clearInterval(chargeInterval);
+            drawScene();
+        }
+
+        // Main Action Button Handler
+        function handleAction() {
+            if (currentMode === 'distance') {
+                if (gameState === 'ready') {
+                    // Start charging power
+                    gameState = 'charging';
+                    document.getElementById('actionBtnText').innerText = "放手擊球！";
+                    chargeInterval = setInterval(() => {
+                        power += 2;
+                        if (power > 100) power = 0;
+                        document.getElementById('powerBar').style.width = power + '%';
+                    }, 20);
+                } else if (gameState === 'charging') {
+                    // Release and hit
+                    clearInterval(chargeInterval);
+                    gameState = 'moving';
+                    document.getElementById('actionBtnText').innerText = "球飛行中...";
+                    
+                    targetDistance = Math.floor((power / 100) * 200) + 20; // 20m to 220m
+                    animateDistanceShot();
+                }
+            } else if (currentMode === 'putt') {
+                if (gameState === 'ready') {
+                    gameState = 'moving';
+                    document.getElementById('actionBtnText').innerText = "推球中...";
+                    // Randomize or increment putt power on click
+                    puttPower = Math.random() * 80 + 20; // 0 to 100 scale relative to distance
+                    animatePuttShot();
+                }
+            }
+        }
+
+        // Animation for Distance Mode
+        let currentAnimX = 100;
+        let currentAnimY = canvas.height * 0.75;
+        let peakY = canvas.height * 0.2;
+
+        function animateDistanceShot() {
+            let startX = 100;
+            let startY = canvas.height * 0.75;
+            let endX = canvas.width - 100;
+            let progress = 0;
+
+            function step() {
+                progress += 0.02;
+                if (progress <= 1) {
+                    currentAnimX = startX + (endX - startX) * progress;
+                    // Parabolic arc for golf ball flight
+                    currentAnimY = startY - Math.sin(progress * Math.PI) * 150;
+                    drawSceneWithBall(currentAnimX, currentAnimY);
+                    requestAnimationFrame(step);
+                } else {
+                    gameState = 'success';
+                    showResult("🎉 太厲害了！", `球穩穩地飛了 <span class="text-emerald-600 font-extrabold text-2xl">${targetDistance}</span> 公尺遠！`);
+                    document.getElementById('actionBtnText').innerText = "再次揮桿！";
+                    gameState = 'ready';
+                }
+            }
+            step();
+        }
+
+        // Animation for Putt Mode
+        function animatePuttShot() {
+            let startX = 150;
+            let startY = canvas.height * 0.75;
+            let targetX = canvas.width * 0.75; // Hole position
+            
+            // Calculate travel distance based on power (0-100 mapped to canvas distance)
+            let maxTravel = canvas.width * 0.7;
+            let travelDist = (puttPower / 100) * maxTravel;
+            let finalX = startX + travelDist;
+            let progress = 0;
+
+            // Hole is around targetX (canvas.width * 0.75) with tolerance +/- 15px
+            let isInsideHole = Math.abs(finalX - targetX) < 25;
+
+            function puttStep() {
+                progress += 0.03;
+                if (progress <= 1) {
+                    let currX = startX + (finalX - startX) * progress;
+                    drawPuttScene(currX, startY);
+                    requestAnimationFrame(puttStep);
+                } else {
+                    gameState = 'success';
+                    if (isInsideHole) {
+                        showResult("🏆 恭喜進洞！", "太棒了！精準的推桿，完美進洞！");
+                    } else if (finalX < targetX) {
+                        showResult("🤏 力道太小囉！", "差一點點就到洞口了，再試一次！");
+                    } else {
+                        showResult("💨 力道太大了！", "球飛過頭囉，記得輕輕推！");
+                    }
+                    document.getElementById('actionBtnText').innerText = "再推一次！";
+                    gameState = 'ready';
+                }
+            }
+            puttStep();
+        }
+
+        // Rendering Scenes
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background Grass & Sky
+            ctx.fillStyle = '#bae6fd'; // sky
+            ctx.fillRect(0, 0, canvas.width, canvas.height * 0.6);
+            ctx.fillStyle = '#86efac'; // grass
+            ctx.fillRect(0, canvas.height * 0.6, canvas.width, canvas.height * 0.4);
+
+            // Draw Sun
+            ctx.fillStyle = '#fde047';
+            ctx.beginPath();
+            ctx.arc(80, 70, 30, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (currentMode === 'distance') {
+                // Draw tee and golf ball
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(100, canvas.height * 0.75, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw distance markers on field
+                ctx.fillStyle = '#047857';
+                ctx.font = 'bold 16px Inter';
+                ctx.fillText("50m", canvas.width * 0.3, canvas.height * 0.68);
+                ctx.fillText("100m", canvas.width * 0.55, canvas.height * 0.68);
+                ctx.fillText("150m+", canvas.width * 0.8, canvas.height * 0.68);
+            } else {
+                // Draw Putt Green
+                ctx.fillStyle = '#059669';
+                ctx.beginPath();
+                ctx.ellipse(canvas.width * 0.75, canvas.height * 0.75, 80, 40, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw Hole
+                ctx.fillStyle = '#064e3b';
+                ctx.beginPath();
+                ctx.ellipse(canvas.width * 0.75, canvas.height * 0.75, 20, 10, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw Flag
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(canvas.width * 0.75, canvas.height * 0.75);
+                ctx.lineTo(canvas.width * 0.75, canvas.height * 0.55);
+                ctx.stroke();
+
+                ctx.fillStyle = '#f43f5e';
+                ctx.beginPath();
+                ctx.moveTo(canvas.width * 0.75, canvas.height * 0.55);
+                ctx.lineTo(canvas.width * 0.75 + 30, canvas.height * 0.59);
+                ctx.lineTo(canvas.width * 0.75, canvas.height * 0.63);
+                ctx.fill();
+
+                // Draw Ball at start
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(150, canvas.height * 0.75, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+        }
+
+        function drawSceneWithBall(x, y) {
+            drawScene();
+            // Draw flying ball
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x, y, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.stroke();
+        }
+
+        function drawPuttScene(x, y) {
+            drawScene();
+            // Draw rolling ball
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x, y, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.stroke();
+        }
+
+        function showResult(title, text) {
+            document.getElementById('resultTitle').innerText = title;
+            document.getElementById('resultText').innerHTML = text;
+            const display = document.getElementById('resultDisplay');
+            const card = document.getElementById('resultCard');
+            display.classList.remove('opacity-0', 'pointer-events-none');
+            card.classList.remove('scale-75');
+            card.classList.add('scale-100');
+        }
+
+        function closeResult() {
+            const display = document.getElementById('resultDisplay');
+            const card = document.getElementById('resultCard');
+            display.classList.add('opacity-0', 'pointer-events-none');
+            card.classList.remove('scale-100');
+            card.classList.add('scale-75');
+            resetGame();
+        }
+
+        // Initial draw on load
+        window.onload = function() {
+            resetGame();
+        };
+    </script>
+</body>
+</html>
